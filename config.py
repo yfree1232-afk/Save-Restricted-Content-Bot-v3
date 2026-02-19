@@ -29,7 +29,7 @@ DB_NAME      = os.getenv("DB_NAME", "Uploder")
 # ─── OWNER / CONTROL SETTINGS ───────────────────────────────────────────────────
 OWNER_ID     = list(map(int, os.getenv("OWNER_ID", "7335874062").split()))  # space-separated list
 STRING       = os.getenv("STRING", None)  # optional session string
-LOG_GROUP    = int(os.getenv("LOG_GROUP", "-1003802787726))
+LOG_GROUP    = int(os.getenv("LOG_GROUP", "-1003802787726"))
 FORCE_SUB    = int(os.getenv("FORCE_SUB", "-1003626124472"))
 
 # ─── SECURITY KEYS ──────────────────────────────────────────────────────────────
@@ -76,4 +76,5 @@ P0 = {
 # ════════════════════════════════════════════════════════════════════════════════
 # ░ DEVGAGAN
 # ════════════════════════════════════════════════════════════════════════════════
+
 
