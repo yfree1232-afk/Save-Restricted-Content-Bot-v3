@@ -8,6 +8,10 @@ import importlib
 import os
 import sys
 
+async def main():
+    await bot.start()
+    await userbot.start()
+    await idle()
 async def load_and_run_plugins():
     await start_client()
     plugin_dir = "plugins"
@@ -30,3 +34,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("Shutting down...")
+
