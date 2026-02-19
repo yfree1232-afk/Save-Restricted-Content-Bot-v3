@@ -20,17 +20,17 @@ YTUB_COOKIES = """
 """
 
 # ─── BOT / DATABASE CONFIG ──────────────────────────────────────────────────────
-API_ID       = os.getenv("API_ID", "")
-API_HASH     = os.getenv("API_HASH", "")
-BOT_TOKEN    = os.getenv("BOT_TOKEN", "")
-MONGO_DB     = os.getenv("MONGO_DB", "")
-DB_NAME      = os.getenv("DB_NAME", "telegram_downloader")
+API_ID       = os.getenv("API_ID", "1888747")
+API_HASH     = os.getenv("API_HASH", "0d707e8ae15254b1453c614bf3026c32")
+BOT_TOKEN    = os.getenv("BOT_TOKEN", "8016777159:AAEXdUNCXs_M-LWa3RIo6b48l_fSg57DsXI")
+MONGO_DB     = os.getenv("MONGO_DB", "mongodb+srv://yfree1232_db_user:NtdjPUmAgl7iEuKE@uploder.6fhrdxh.mongodb.net/?appName=Uploder")
+DB_NAME      = os.getenv("DB_NAME", "Uploder")
 
 # ─── OWNER / CONTROL SETTINGS ───────────────────────────────────────────────────
-OWNER_ID     = list(map(int, os.getenv("OWNER_ID", "").split()))  # space-separated list
+OWNER_ID     = list(map(int, os.getenv("OWNER_ID", "7335874062").split()))  # space-separated list
 STRING       = os.getenv("STRING", None)  # optional session string
-LOG_GROUP    = int(os.getenv("LOG_GROUP", "-1001234456"))
-FORCE_SUB    = int(os.getenv("FORCE_SUB", "-10012345567"))
+LOG_GROUP    = int(os.getenv("LOG_GROUP", "-1003802787726))
+FORCE_SUB    = int(os.getenv("FORCE_SUB", "-1003626124472"))
 
 # ─── SECURITY KEYS ──────────────────────────────────────────────────────────────
 MASTER_KEY   = os.getenv("MASTER_KEY", "gK8HzLfT9QpViJcYeB5wRa3DmN7P2xUq")  # session encryption
@@ -76,3 +76,4 @@ P0 = {
 # ════════════════════════════════════════════════════════════════════════════════
 # ░ DEVGAGAN
 # ════════════════════════════════════════════════════════════════════════════════
+
