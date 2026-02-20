@@ -8,9 +8,8 @@ import importlib
 import os
 import sys
 
-async def main():
-    while True:
-        await asyncio.sleep(1)
+async def load_and_run_plugins():
+    await start_client()
     plugin_dir = "plugins"
     plugins = [f[:-3] for f in os.listdir(plugin_dir) if f.endswith(".py") and f != "__init__.py"]
 
@@ -26,11 +25,17 @@ async def main():
         await asyncio.sleep(1)  
 
 if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
     print("Starting clients ...")
     try:
-        asyncio.run(main())
+        loop.run_until_complete(main())
     except KeyboardInterrupt:
         print("Shutting down...")
-
-
-
+    except Exception as e:
+        print(e)
+        sys.exit(1)
+    finally:
+        try:
+            loop.close()
+        except Exception:
+            pass
