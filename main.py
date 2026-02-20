@@ -9,7 +9,6 @@ import os
 import sys
 
 async def main():
-    await load_and_run_plugins()
     while True:
         await asyncio.sleep(1)
     plugin_dir = "plugins"
@@ -32,5 +31,6 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("Shutting down...")
+
 
 
