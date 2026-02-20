@@ -9,11 +9,9 @@ import os
 import sys
 
 async def main():
-    await bot.start()
-    await userbot.start()
-    await idle()
-async def load_and_run_plugins():
-    await start_client()
+    await load_and_run_plugins()
+    while True:
+        await asyncio.sleep(1)
     plugin_dir = "plugins"
     plugins = [f[:-3] for f in os.listdir(plugin_dir) if f.endswith(".py") and f != "__init__.py"]
 
@@ -34,4 +32,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("Shutting down...")
+
 
