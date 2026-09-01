@@ -55,6 +55,9 @@ async def set_commands_handler(_, message: Message):
         BotCommand("setlog", "📋 Set Log Channel (Owner only)"),
         BotCommand("remlog", "🗑️ Remove Log Channel (Owner only)"),
         BotCommand("getlog", "🔍 View Log Channel (Owner only)"),
+        BotCommand("settarget", "🎯 Set Target Channel (Owner only)"),
+        BotCommand("fwd", "📤 Systematic Batch Forward (Owner only)"),
+        BotCommand("sendto", "🚀 Copy Replied Post (Owner only)"),
         BotCommand("cancel", "🚫 Cancel current process"),
         BotCommand("stop", "🛑 Stop ongoing batch"),
         BotCommand("help", "❓ Help & tutorial")
