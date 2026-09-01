@@ -389,3 +389,41 @@ async def redeem_code(user_id: int, code: str):
     except Exception as e:
         logger.error(f"Error redeeming code: {e}")
         return False, str(e)
+
+
+bot_settings_collection = db["bot_settings"]
+
+async def get_log_channel():
+    try:
+        from config import LOG_GROUP
+        doc = await bot_settings_collection.find_one({"key": "log_channel"})
+        if doc and doc.get("channel_id"):
+            return int(doc["channel_id"])
+        if LOG_GROUP and str(LOG_GROUP) not in ["0", "-1001234456", "None"]:
+            return int(LOG_GROUP)
+        return None
+    except Exception as e:
+        logger.error(f"Error getting log channel: {e}")
+        return None
+
+
+async def set_log_channel(channel_id: int):
+    try:
+        await bot_settings_collection.update_one(
+            {"key": "log_channel"},
+            {"$set": {"channel_id": int(channel_id), "updated_at": datetime.now()}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Error setting log channel: {e}")
+        return False
+
+
+async def remove_log_channel():
+    try:
+        await bot_settings_collection.delete_one({"key": "log_channel"})
+        return True
+    except Exception as e:
+        logger.error(f"Error removing log channel: {e}")
+        return False
