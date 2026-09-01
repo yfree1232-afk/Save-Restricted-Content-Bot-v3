@@ -10,7 +10,7 @@ from config import API_ID, API_HASH, LOG_GROUP, STRING, FORCE_SUB, FREEMIUM_LIMI
 from utils.func import get_user_data, screenshot, thumbnail, get_video_metadata
 from utils.func import get_user_data_key, process_text_with_rules, is_premium_user, E, remove_user_session, remove_user_bot
 from shared_client import app as X
-from plugins.settings import rename_file
+from plugins.settings import rename_file, active_conversations
 from plugins.start import subscribe as sub
 from utils.custom_filters import login_in_progress
 from utils.encrypt import dcs
@@ -431,6 +431,8 @@ async def process_cmd(c, m):
 @X.on_message(filters.command(['cancel', 'stop']))
 async def cancel_cmd(c, m):
     uid = m.from_user.id
+    if uid in active_conversations:
+        del active_conversations[uid]
     if is_user_active(uid):
         if await request_batch_cancel(uid):
             await m.reply_text('🛑 Cancellation requested. Ongoing batch will stop after the current file.')
@@ -442,9 +444,11 @@ async def cancel_cmd(c, m):
 
 @X.on_message(filters.text & filters.private & ~login_in_progress & ~filters.command([
     'start', 'batch', 'cancel', 'login', 'logout', 'stop', 'set', 
-    'pay', 'redeem', 'gencode', 'single', 'generate', 'keyinfo', 'encrypt', 'decrypt', 'keys', 'setbot', 'rembot', 'settings', 'plan', 'terms', 'help', 'stats', 'status', 'add', 'rem', 'transfer']))
+    'pay', 'redeem', 'gencode', 'single', 'generate', 'keyinfo', 'encrypt', 'decrypt', 'keys', 'setbot', 'rembot', 'settings', 'plan', 'terms', 'help', 'stats', 'status', 'add', 'rem', 'transfer', 'myplan']))
 async def text_handler(c, m):
     uid = m.from_user.id
+    if uid in active_conversations:
+        return
     text = m.text.strip()
     
     # 1. Check interactive steps (if user ran /batch or /single)
