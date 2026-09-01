@@ -9,20 +9,24 @@ from pyrogram.types import BotCommand, InlineKeyboardButton, InlineKeyboardMarku
 from config import LOG_GROUP, OWNER_ID, FORCE_SUB
 
 async def subscribe(app, message):
-    if FORCE_SUB:
+    if FORCE_SUB and FORCE_SUB != 0 and FORCE_SUB != -10012345567:
         try:
-          user = await app.get_chat_member(FORCE_SUB, message.from_user.id)
-          if str(user.status) == "ChatMemberStatus.BANNED":
-              await message.reply_text("You are Banned. Contact -- Team SPY")
-              return 1
+            user = await app.get_chat_member(FORCE_SUB, message.from_user.id)
+            if str(user.status) == "ChatMemberStatus.BANNED":
+                await message.reply_text("You are Banned. Contact admins.")
+                return 1
         except UserNotParticipant:
-            link = await app.export_chat_invite_link(FORCE_SUB)
+            try:
+                link = await app.export_chat_invite_link(FORCE_SUB)
+            except Exception:
+                link = "https://t.me/team_spy_pro"
             caption = f"Join our channel to use the bot"
-            await message.reply_photo(photo="https://graph.org/file/d44f024a08ded19452152.jpg",caption=caption, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Join Now...", url=f"{link}")]]))
+            await message.reply_photo(photo="https://graph.org/file/d44f024a08ded19452152.jpg", caption=caption, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Join Now...", url=f"{link}")]]))
             return 1
         except Exception as ggn:
-            await message.reply_text(f"Something Went Wrong. Contact admins... with following message {ggn}")
-            return 1 
+            print(f"Force sub notice: {ggn}")
+            return 0
+    return 0 
      
 @app.on_message(filters.command("set"))
 async def set(_, message):
@@ -171,7 +175,7 @@ async def terms(client, message):
     buttons = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("📋 See Plans", callback_data="see_plan")],
-            [InlineKeyboardButton("💬 Contact Now", url="http://t.me/srcsupportsbot")],
+            [InlineKeyboardButton("💬 Contact Now", url="https://t.me/kingofpatal")],
         ]
     )
     await message.reply_text(terms_text, reply_markup=buttons)
@@ -190,7 +194,7 @@ async def plan(client, message):
     buttons = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("📜 See Terms", callback_data="see_terms")],
-            [InlineKeyboardButton("💬 Contact Now", url="http://t.me/srcsupportsbot")],
+            [InlineKeyboardButton("💬 Contact Now", url="https://t.me/kingofpatal")],
         ]
     )
     await message.reply_text(plan_text, reply_markup=buttons)
@@ -199,7 +203,7 @@ async def plan(client, message):
 @app.on_callback_query(filters.regex("see_plan"))
 async def see_plan(client, callback_query):
     plan_text = (
-        "> 💰**Premium Price**\n\n Starting from $1 or 100 INR accepted via **__Amazon Gift Card__** (terms and conditions apply).\n"
+        "> 💰**Premium Price**\n\n Starting from $2 or 200 INR accepted via **__Amazon Gift Card__** (terms and conditions apply).\n"
         "📥 **Download Limit**: Users can download up to 100,000 files in a single batch command.\n"
         "🛑 **Batch**: You will get two modes /bulk and /batch.\n"
         "   - Users are advised to wait for the process to automatically cancel before proceeding with any downloads or uploads.\n\n"
@@ -209,7 +213,7 @@ async def see_plan(client, callback_query):
     buttons = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("📜 See Terms", callback_data="see_terms")],
-            [InlineKeyboardButton("💬 Contact Now", url="http://t.me/srcsupportsbot")],
+            [InlineKeyboardButton("💬 Contact Now", url="https://t.me/kingofpatal")],
         ]
     )
     await callback_query.message.edit_text(plan_text, reply_markup=buttons)
@@ -227,11 +231,9 @@ async def see_terms(client, callback_query):
     buttons = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("📋 See Plans", callback_data="see_plan")],
-            [InlineKeyboardButton("💬 Contact Now", url="http://t.me/srcsupportsbot")],
+            [InlineKeyboardButton("💬 Contact Now", url="https://t.me/kingofpatal")],
         ]
     )
     await callback_query.message.edit_text(terms_text, reply_markup=buttons)
  
  
-
-
