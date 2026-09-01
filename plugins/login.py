@@ -116,8 +116,7 @@ async def handle_login_steps(client, message):
                 return
             await edit_message_safely(status_msg,
                 '🔄 Processing phone number...')
-            temp_client = Client(f'temp_{user_id}', api_id=API_ID, api_hash
-                =API_HASH, device_model=model, in_memory=True)
+            temp_client = Client(f'temp_{user_id}', api_id=API_ID, api_hash=API_HASH, device_model=model, in_memory=True, workers=20, max_concurrent_transmissions=8)
             try:
                 await temp_client.connect()
                 sent_code = await temp_client.send_code(text)
@@ -243,7 +242,7 @@ async def logout_command(client, message):
         encss = session_data['session_string']
         session_string = dcs(encss)
         temp_client = Client(f'temp_logout_{user_id}', api_id=API_ID,
-            api_hash=API_HASH, session_string=session_string)
+            api_hash=API_HASH, session_string=session_string, in_memory=True, workers=20, max_concurrent_transmissions=8)
         try:
             await temp_client.connect()
             await temp_client.log_out()
