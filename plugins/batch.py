@@ -73,68 +73,23 @@ async def remove_active_batch(user_id: int):
 
 ACTIVE_USERS = load_active_users()
 
-async def get_msg(c, u, i, d, lt):
-    """Fetch message from Telegram channel / group"""
-    try:
-        if lt == 'public':
-            target = int(i) if str(i).lstrip('-').isdigit() else str(i)
-            xm = None
-            if c:
-                try:
-                    xm = await c.get_messages(target, d)
-                except Exception as ce:
-                    pass
-            if (not xm or getattr(xm, "empty", False)) and u:
-                try:
-                    xm = await u.get_messages(target, d)
-                except Exception as ue:
-                    pass
-            return xm if (xm and not getattr(xm, "empty", False)) else None
-        else:
-            # Private channel
-            client_to_use = u if u else c
-            if not client_to_use:
-                return None
-            
-            # Ensure correct integer chat_id
-            if str(i).startswith('-100'):
-                chat_id_int = int(i)
-            elif str(i).lstrip('-').isdigit():
-                chat_id_int = int(f"-100{str(i).lstrip('-')}")
-            else:
-                chat_id_int = i
-
-            try:
-                result = await client_to_use.get_messages(chat_id_int, d)
-                if result and not getattr(result, "empty", False):
-                    return result
-            except FloodWait as fw:
-                print(f"FloodWait in get_msg: sleeping {fw.value}s")
-                await asyncio.sleep(fw.value + 1)
-                result = await client_to_use.get_messages(chat_id_int, d)
-                if result and not getattr(result, "empty", False):
-                    return result
-            except Exception as pe:
-                try:
-                    await client_to_use.get_chat(chat_id_int)
-                    result = await client_to_use.get_messages(chat_id_int, d)
-                    if result and not getattr(result, "empty", False):
-                        return result
-                except Exception:
-                    pass
-            
-            return None
-    except Exception as e:
-        print(f'Error in get_msg: {e}')
-        return None
-
 async def get_ubot(uid):
     """Returns custom bot if configured via /setbot, otherwise returns main bot X"""
     bt = await get_user_data_key(uid, "bot_token", None)
     if not bt:
         return X
     if uid in UB:
-        return UB.get(uid)
+        bot = UB[uid]
+        if bot and not bot.is_connected:
+            try:
+                await bot.connect()
+            except Exception:
+                try:
+                    await bot.start()
+                except Exception:
+                    pass
+        if bot and bot.is_connected:
+            return bot
     try:
         bot = Client(f"user_{uid}", bot_token=bt, api_id=API_ID, api_hash=API_HASH, in_memory=True, workers=20)
         await bot.start()
@@ -145,9 +100,22 @@ async def get_ubot(uid):
         return X
 
 async def get_uclient(uid):
-    """Returns user client if logged in via /login or session string, else None"""
+    """Returns user client if logged in via /login or session string, with auto-reconnect"""
     if uid in UC:
-        return UC[uid]
+        client = UC[uid]
+        if client and not getattr(client, 'is_connected', False):
+            try:
+                await client.connect()
+            except Exception:
+                try:
+                    await client.start()
+                except Exception as ce:
+                    print(f"Error reconnecting client for user {uid}: {ce}")
+                    del UC[uid]
+                    client = None
+        if client and getattr(client, 'is_connected', False):
+            return client
+
     ud = await get_user_data(uid)
     if not ud: return Y
     xxx = ud.get('session_string')
@@ -167,6 +135,78 @@ async def get_uclient(uid):
                     pass
             return Y
     return Y
+
+async def get_msg(c, u, i, d, lt, uid=None):
+    """Fetch message from Telegram channel / group with auto-reconnection and retry"""
+    for attempt in range(3):
+        try:
+            client_to_use = u if u else c
+            if not client_to_use:
+                if uid:
+                    u = await get_uclient(uid)
+                    client_to_use = u if u else c
+                if not client_to_use:
+                    return None
+
+            # Ensure client is connected
+            if not getattr(client_to_use, 'is_connected', False):
+                try:
+                    await client_to_use.connect()
+                except Exception:
+                    try:
+                        await client_to_use.start()
+                    except Exception:
+                        pass
+
+            if lt == 'public':
+                target = int(i) if str(i).lstrip('-').isdigit() else str(i)
+                xm = None
+                if c and getattr(c, 'is_connected', False):
+                    try:
+                        xm = await c.get_messages(target, d)
+                    except Exception:
+                        pass
+                if (not xm or getattr(xm, "empty", False)) and u and getattr(u, 'is_connected', False):
+                    try:
+                        xm = await u.get_messages(target, d)
+                    except Exception:
+                        pass
+                if xm and not getattr(xm, "empty", False):
+                    return xm
+            else:
+                # Private channel
+                if str(i).startswith('-100'):
+                    chat_id_int = int(i)
+                elif str(i).lstrip('-').isdigit():
+                    chat_id_int = int(f"-100{str(i).lstrip('-')}")
+                else:
+                    chat_id_int = i
+
+                try:
+                    result = await client_to_use.get_messages(chat_id_int, d)
+                    if result and not getattr(result, "empty", False):
+                        return result
+                except FloodWait as fw:
+                    print(f"FloodWait in get_msg: sleeping {fw.value}s")
+                    await asyncio.sleep(fw.value + 1)
+                    continue
+                except Exception as pe:
+                    try:
+                        await client_to_use.get_chat(chat_id_int)
+                        result = await client_to_use.get_messages(chat_id_int, d)
+                        if result and not getattr(result, "empty", False):
+                            return result
+                    except Exception:
+                        pass
+
+            await asyncio.sleep(1)
+        except Exception as e:
+            print(f"get_msg attempt {attempt+1} error: {e}")
+            if uid:
+                u = await get_uclient(uid)
+            await asyncio.sleep(1.5)
+            
+    return None
 
 async def prog(c, t, C, h, m, st):
     global P
@@ -259,7 +299,26 @@ async def process_msg(c, u, m, d, lt, uid, i, status_msg_id=None):
                 c_name = sanitize(file_name)
 
             downloader = u if u else c
-            f = await downloader.download_media(m, file_name=c_name, progress=prog, progress_args=(c, int(d), p_id, st))
+            if not getattr(downloader, 'is_connected', False):
+                try:
+                    await downloader.connect()
+                except Exception:
+                    pass
+
+            f = None
+            for dl_attempt in range(3):
+                try:
+                    f = await downloader.download_media(m, file_name=c_name, progress=prog, progress_args=(c, int(d), p_id, st))
+                    if f and os.path.exists(f):
+                        break
+                except FloodWait as fw:
+                    await asyncio.sleep(fw.value + 1)
+                except Exception as de:
+                    print(f"Download attempt {dl_attempt+1} error: {de}")
+                    if uid and u:
+                        u = await get_uclient(uid)
+                        downloader = u if u else c
+                    await asyncio.sleep(2)
             
             if not f or not os.path.exists(f):
                 return 'Download failed.'
@@ -341,7 +400,7 @@ async def handle_single_extraction(c, m, ubot, uc, uid, i, d, lt):
             await pt.edit('⚠️ **Private Channel Notice**:\nPlease log in first with `/login` (phone number + OTP) so the bot can access this private channel.')
             return
             
-        msg = await get_msg(bot_to_use, client_to_use, i, d, lt)
+        msg = await get_msg(bot_to_use, client_to_use, i, d, lt, uid=uid)
         if not msg:
             await pt.edit('❌ **Post Not Found**\n- Make sure your logged-in account has joined the channel.\n- Check if the link / post number is correct.')
             return
@@ -452,6 +511,7 @@ async def text_handler(c, m):
             
             success = 0
             skipped = 0
+            consecutive_misses = 0
             
             try:
                 for j in range(count):
@@ -461,6 +521,10 @@ async def text_handler(c, m):
                     
                     mid = int(start_id) + j
                     await update_batch_progress(uid, j + 1, success, skipped)
+                    
+                    # Refresh user client if needed
+                    if not uc or not getattr(uc, 'is_connected', False):
+                        uc = await get_uclient(uid)
                     
                     # Update live dashboard
                     try:
@@ -474,15 +538,20 @@ async def text_handler(c, m):
                         pass
                     
                     try:
-                        msg = await get_msg(ubot, uc if uc else Y, i, mid, lt)
+                        msg = await get_msg(ubot, uc if uc else Y, i, mid, lt, uid=uid)
                         if msg:
+                            consecutive_misses = 0
                             res = await process_msg(ubot, uc if uc else Y, msg, str(m.chat.id), lt, uid, i)
                             if 'Done' in res or 'Copied' in res or 'Sent' in res:
                                 success += 1
                             else:
                                 skipped += 1
                         else:
+                            consecutive_misses += 1
                             skipped += 1
+                            # If 5 misses in a row, refresh client connection
+                            if consecutive_misses % 5 == 0:
+                                uc = await get_uclient(uid)
                     except FloodWait as fw:
                         await pt.edit(f"⏳ FloodWait detected: Sleeping for {fw.value}s...")
                         await asyncio.sleep(fw.value + 1)
