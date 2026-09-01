@@ -5,10 +5,10 @@
 import os, re, time, asyncio, json
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from pyrogram.errors import UserNotParticipant
+from pyrogram.errors import UserNotParticipant, FloodWait
 from config import API_ID, API_HASH, LOG_GROUP, STRING, FORCE_SUB, FREEMIUM_LIMIT, PREMIUM_LIMIT
 from utils.func import get_user_data, screenshot, thumbnail, get_video_metadata
-from utils.func import get_user_data_key, process_text_with_rules, is_premium_user, E
+from utils.func import get_user_data_key, process_text_with_rules, is_premium_user, E, remove_user_session, remove_user_bot
 from shared_client import app as X
 from plugins.settings import rename_file
 from plugins.start import subscribe as sub
@@ -48,10 +48,11 @@ async def add_active_batch(user_id: int, batch_info: Dict[str, Any]):
 def is_user_active(user_id: int) -> bool:
     return str(user_id) in ACTIVE_USERS
 
-async def update_batch_progress(user_id: int, current: int, success: int):
+async def update_batch_progress(user_id: int, current: int, success: int, skipped: int = 0):
     if str(user_id) in ACTIVE_USERS:
         ACTIVE_USERS[str(user_id)]["current"] = current
         ACTIVE_USERS[str(user_id)]["success"] = success
+        ACTIVE_USERS[str(user_id)]["skipped"] = skipped
         await save_active_users_to_file()
 
 async def request_batch_cancel(user_id: int):
@@ -72,14 +73,6 @@ async def remove_active_batch(user_id: int):
 
 ACTIVE_USERS = load_active_users()
 
-async def upd_dlg(c):
-    try:
-        async for _ in c.get_dialogs(limit=20): pass
-        return True
-    except Exception as e:
-        print(f'Dialog update note: {e}')
-        return False
-
 async def get_msg(c, u, i, d, lt):
     """Fetch message from Telegram channel / group"""
     try:
@@ -90,18 +83,17 @@ async def get_msg(c, u, i, d, lt):
                 try:
                     xm = await c.get_messages(target, d)
                 except Exception as ce:
-                    print(f"Public msg fetch via bot note: {ce}")
+                    pass
             if (not xm or getattr(xm, "empty", False)) and u:
                 try:
                     xm = await u.get_messages(target, d)
                 except Exception as ue:
-                    print(f"Public msg fetch via userbot note: {ue}")
+                    pass
             return xm if (xm and not getattr(xm, "empty", False)) else None
         else:
             # Private channel
             client_to_use = u if u else c
             if not client_to_use:
-                print("No client available for private message")
                 return None
             
             # Ensure correct integer chat_id
@@ -116,15 +108,20 @@ async def get_msg(c, u, i, d, lt):
                 result = await client_to_use.get_messages(chat_id_int, d)
                 if result and not getattr(result, "empty", False):
                     return result
+            except FloodWait as fw:
+                print(f"FloodWait in get_msg: sleeping {fw.value}s")
+                await asyncio.sleep(fw.value + 1)
+                result = await client_to_use.get_messages(chat_id_int, d)
+                if result and not getattr(result, "empty", False):
+                    return result
             except Exception as pe:
-                print(f"Direct get_messages failed ({pe}), attempting to resolve peer...")
                 try:
                     await client_to_use.get_chat(chat_id_int)
                     result = await client_to_use.get_messages(chat_id_int, d)
                     if result and not getattr(result, "empty", False):
                         return result
-                except Exception as e2:
-                    print(f"Resolve peer get_messages failed: {e2}")
+                except Exception:
+                    pass
             
             return None
     except Exception as e:
@@ -139,30 +136,35 @@ async def get_ubot(uid):
     if uid in UB:
         return UB.get(uid)
     try:
-        bot = Client(f"user_{uid}", bot_token=bt, api_id=API_ID, api_hash=API_HASH)
+        bot = Client(f"user_{uid}", bot_token=bt, api_id=API_ID, api_hash=API_HASH, in_memory=True)
         await bot.start()
         UB[uid] = bot
         return bot
     except Exception as e:
-        print(f"Error starting custom bot for user {uid}: {e}, defaulting to main bot")
+        print(f"Custom bot error for user {uid}: {e}, defaulting to main bot")
         return X
 
 async def get_uclient(uid):
     """Returns user client if logged in via /login or session string, else None"""
-    cl = UC.get(uid)
-    if cl: return cl
+    if uid in UC:
+        return UC[uid]
     ud = await get_user_data(uid)
     if not ud: return Y
     xxx = ud.get('session_string')
     if xxx:
         try:
             ss = dcs(xxx)
-            gg = Client(f'{uid}_client', api_id=API_ID, api_hash=API_HASH, device_model="v3saver", session_string=ss)
+            gg = Client(f'{uid}_client', api_id=API_ID, api_hash=API_HASH, device_model="v3saver", session_string=ss, in_memory=True)
             await gg.start()
             UC[uid] = gg
             return gg
         except Exception as e:
-            print(f'User client error: {e}')
+            print(f'User client session error: {e}')
+            if "401" in str(e) or "Auth key" in str(e) or "SESSION_REVOKED" in str(e):
+                try:
+                    await remove_user_session(uid)
+                except Exception:
+                    pass
             return Y
     return Y
 
@@ -176,11 +178,11 @@ async def prog(c, t, C, h, m, st):
         P[m] = step
         c_mb = c / (1024 * 1024)
         t_mb = t / (1024 * 1024)
-        bar = '🟢' * int(p / 10) + '🔴' * (10 - int(p / 10))
+        bar = '🟢' * int(p / 10) + '⚪' * (10 - int(p / 10))
         speed = c / (time.time() - st) / (1024 * 1024) if time.time() > st else 0
         eta = time.strftime('%M:%S', time.gmtime((t - c) / (speed * 1024 * 1024))) if speed > 0 else '00:00'
         try:
-            await C.edit_message_text(h, m, f"__**Processing Media...**__\n\n{bar}\n\n⚡ **__Progress__**: {c_mb:.2f} MB / {t_mb:.2f} MB ({p:.1f}%)\n🚀 **__Speed__**: {speed:.2f} MB/s\n⏳ **__ETA__**: {eta}")
+            await C.edit_message_text(h, m, f"⚡ **Transferring Media**\n\n{bar}\n\n📦 **Progress**: {c_mb:.2f} MB / {t_mb:.2f} MB (`{p:.1f}%`)\n🚀 **Speed**: `{speed:.2f} MB/s` | ⏳ **ETA**: `{eta}`")
         except Exception:
             pass
         if p >= 100: P.pop(m, None)
@@ -209,7 +211,7 @@ async def send_direct(c, m, tcid, ft=None, rtmid=None):
         print(f'Direct send note: {e}')
         return False
 
-async def process_msg(c, u, m, d, lt, uid, i):
+async def process_msg(c, u, m, d, lt, uid, i, status_msg_id=None):
     try:
         cfg_chat = await get_user_data_key(d, 'chat_id', None)
         tcid = int(d)
@@ -236,7 +238,11 @@ async def process_msg(c, u, m, d, lt, uid, i):
             
             # Download media
             st = time.time()
-            p = await c.send_message(int(d), '⬇️ Downloading media...')
+            if status_msg_id:
+                p_id = status_msg_id
+            else:
+                p = await c.send_message(int(d), '⬇️ Downloading media...')
+                p_id = p.id
             
             c_name = f"{time.time()}"
             if m.video:
@@ -253,23 +259,21 @@ async def process_msg(c, u, m, d, lt, uid, i):
                 c_name = sanitize(file_name)
 
             downloader = u if u else c
-            f = await downloader.download_media(m, file_name=c_name, progress=prog, progress_args=(c, int(d), p.id, st))
+            f = await downloader.download_media(m, file_name=c_name, progress=prog, progress_args=(c, int(d), p_id, st))
             
             if not f or not os.path.exists(f):
-                await c.edit_message_text(int(d), p.id, '❌ Download failed.')
                 return 'Download failed.'
             
             try:
-                await c.edit_message_text(int(d), p.id, '🏷️ Processing file...')
-                f = await rename_file(f, d, p)
+                f = await rename_file(f, d, p_id)
             except Exception:
                 pass
             
-            fsize = os.path.getsize(f) / (1024 * 1024 * 1024)
-            th = thumbnail(d)
-            
             # Uploading
-            await c.edit_message_text(int(d), p.id, '⬆️ Uploading to Telegram...')
+            try:
+                await c.edit_message_text(int(d), p_id, '⬆️ Uploading to Telegram...')
+            except Exception:
+                pass
             st = time.time()
 
             try:
@@ -283,62 +287,67 @@ async def process_msg(c, u, m, d, lt, uid, i):
                     th = await screenshot(f, dur, d)
                     await c.send_video(tcid, video=f, caption=ft if m.caption else None, 
                                     thumb=th, width=w, height=h, duration=dur, 
-                                    progress=prog, progress_args=(c, int(d), p.id, st), 
+                                    progress=prog, progress_args=(c, int(d), p_id, st), 
                                     reply_to_message_id=rtmid)
                 elif m.video_note:
                     await c.send_video_note(tcid, video_note=f, progress=prog, 
-                                        progress_args=(c, int(d), p.id, st), reply_to_message_id=rtmid)
+                                        progress_args=(c, int(d), p_id, st), reply_to_message_id=rtmid)
                 elif m.voice:
-                    await c.send_voice(tcid, f, progress=prog, progress_args=(c, int(d), p.id, st), 
+                    await c.send_voice(tcid, f, progress=prog, progress_args=(c, int(d), p_id, st), 
                                     reply_to_message_id=rtmid)
                 elif m.sticker:
                     await c.send_sticker(tcid, m.sticker.file_id, reply_to_message_id=rtmid)
                 elif m.audio or (m.document and file_ext in audio_extensions):
                     await c.send_audio(tcid, audio=f, caption=ft if m.caption else None, 
-                                    thumb=th, progress=prog, progress_args=(c, int(d), p.id, st), 
+                                    thumb=th, progress=prog, progress_args=(c, int(d), p_id, st), 
                                     reply_to_message_id=rtmid)
                 elif m.photo:
                     await c.send_photo(tcid, photo=f, caption=ft if m.caption else None, 
-                                    progress=prog, progress_args=(c, int(d), p.id, st), 
+                                    progress=prog, progress_args=(c, int(d), p_id, st), 
                                     reply_to_message_id=rtmid)
                 else:
                     await c.send_document(tcid, document=f, caption=ft if m.caption else None, 
-                                        progress=prog, progress_args=(c, int(d), p.id, st), 
+                                        progress=prog, progress_args=(c, int(d), p_id, st), 
                                         reply_to_message_id=rtmid)
             except Exception as e:
-                await c.edit_message_text(int(d), p.id, f'❌ Upload failed: {str(e)[:40]}')
                 if os.path.exists(f): os.remove(f)
-                return 'Upload failed.'
+                return f'Upload failed: {str(e)[:30]}'
             
             if os.path.exists(f): os.remove(f)
-            await c.delete_messages(int(d), p.id)
+            if not status_msg_id:
+                try:
+                    await c.delete_messages(int(d), p_id)
+                except Exception:
+                    pass
             return 'Done.'
             
         elif m.text:
             await c.send_message(tcid, text=m.text.markdown, reply_to_message_id=rtmid)
             return 'Sent text.'
+        else:
+            return 'Unsupported format'
     except Exception as e:
         print(f"process_msg error: {e}")
         return f'Error: {str(e)[:50]}'
 
 async def handle_single_extraction(c, m, ubot, uc, uid, i, d, lt):
     """Handle extraction for a single message link"""
-    pt = await m.reply_text('⏳ Processing link...')
+    pt = await m.reply_text('⏳ Fetching post...')
     try:
         bot_to_use = ubot if ubot else c
         client_to_use = uc if uc else Y
         
         if lt == 'private' and not client_to_use:
-            await pt.edit('⚠️ **Restricted Channel Notice**:\nThis is a private/restricted channel link.\nPlease log in first with `/login` (phone number + OTP) so the bot can access your channel.')
+            await pt.edit('⚠️ **Private Channel Notice**:\nPlease log in first with `/login` (phone number + OTP) so the bot can access this private channel.')
             return
             
         msg = await get_msg(bot_to_use, client_to_use, i, d, lt)
         if not msg:
-            await pt.edit('❌ **Message Not Found**\n- Make sure your logged-in account has joined the channel.\n- Check if the link is valid.')
+            await pt.edit('❌ **Post Not Found**\n- Make sure your logged-in account has joined the channel.\n- Check if the link / post number is correct.')
             return
             
-        res = await process_msg(bot_to_use, client_to_use, msg, str(m.chat.id), lt, uid, i)
-        await pt.edit(f'✅ Result: {res}')
+        res = await process_msg(bot_to_use, client_to_use, msg, str(m.chat.id), lt, uid, i, status_msg_id=pt.id)
+        await pt.edit(f'✅ **Extraction Result**: {res}')
     except Exception as e:
         await pt.edit(f'❌ Error: {str(e)[:60]}')
 
@@ -365,7 +374,7 @@ async def cancel_cmd(c, m):
     uid = m.from_user.id
     if is_user_active(uid):
         if await request_batch_cancel(uid):
-            await m.reply_text('🛑 Cancellation requested. Ongoing batch will stop soon.')
+            await m.reply_text('🛑 Cancellation requested. Ongoing batch will stop after the current file.')
         else:
             await m.reply_text('Failed to request cancellation.')
     else:
@@ -392,7 +401,7 @@ async def text_handler(c, m):
                 Z.pop(uid, None)
                 return
             Z[uid].update({'step': 'count', 'cid': i, 'sid': d, 'lt': lt})
-            await m.reply_text('🔢 How many consecutive posts to extract? Send a number (e.g. 5, 10):')
+            await m.reply_text('🔢 How many consecutive posts to extract? Send a number (e.g. 5, 10, 20):')
             return
 
         elif s == 'start_single':
@@ -417,33 +426,52 @@ async def text_handler(c, m):
                 await m.reply_text(f'⚠️ Maximum allowed limit is {maxlimit} posts.')
                 return
 
-            Z[uid].update({'step': 'process', 'did': str(m.chat.id), 'num': count})
-            i, s, n, lt = Z[uid]['cid'], Z[uid]['sid'], Z[uid]['num'], Z[uid]['lt']
-            success = 0
+            i, start_id, lt = Z[uid]['cid'], Z[uid]['sid'], Z[uid]['lt']
+            
+            # Check login for private channel before starting
+            if lt == 'private' and not uc and not Y:
+                await m.reply_text('⚠️ **Private Channel Warning**:\nYou are extracting from a private channel. Please `/login` with your Telegram phone number first, otherwise private messages cannot be fetched.')
+                Z.pop(uid, None)
+                return
 
-            pt = await m.reply_text('🚀 Starting batch extraction...')
+            pt = await m.reply_text(f'🚀 **Starting Batch Extraction** (Total: {count} posts)...\n⏳ Initializing...')
             
             if is_user_active(uid):
-                await pt.edit('⚠️ Active task already exists. Use /stop first.')
+                await pt.edit('⚠️ Active task already exists. Use `/stop` first.')
                 Z.pop(uid, None)
                 return
             
             await add_active_batch(uid, {
-                "total": n,
+                "total": count,
                 "current": 0,
                 "success": 0,
+                "skipped": 0,
                 "cancel_requested": False,
                 "progress_message_id": pt.id
             })
             
+            success = 0
+            skipped = 0
+            
             try:
-                for j in range(n):
+                for j in range(count):
                     if should_cancel(uid):
-                        await pt.edit(f'🛑 Batch cancelled at {j}/{n}. Success: {success}')
+                        await pt.edit(f'🛑 **Batch Cancelled** at item {j+1}/{count}.\n✅ Success: {success} | ⏩ Skipped: {skipped}')
                         break
                     
-                    await update_batch_progress(uid, j, success)
-                    mid = int(s) + j
+                    mid = int(start_id) + j
+                    await update_batch_progress(uid, j + 1, success, skipped)
+                    
+                    # Update live dashboard
+                    try:
+                        await pt.edit(
+                            f"🔄 **Batch Progress**: [{j+1}/{count}]\n"
+                            f"📊 **Completed**: `{((j+1)/count)*100:.1f}%`\n"
+                            f"✅ **Extracted**: `{success}` | ⏩ **Skipped**: `{skipped}`\n"
+                            f"📥 **Fetching Post ID**: `{mid}`"
+                        )
+                    except Exception:
+                        pass
                     
                     try:
                         msg = await get_msg(ubot, uc if uc else Y, i, mid, lt)
@@ -451,12 +479,25 @@ async def text_handler(c, m):
                             res = await process_msg(ubot, uc if uc else Y, msg, str(m.chat.id), lt, uid, i)
                             if 'Done' in res or 'Copied' in res or 'Sent' in res:
                                 success += 1
+                            else:
+                                skipped += 1
+                        else:
+                            skipped += 1
+                    except FloodWait as fw:
+                        await pt.edit(f"⏳ FloodWait detected: Sleeping for {fw.value}s...")
+                        await asyncio.sleep(fw.value + 1)
                     except Exception as e:
-                        print(f"Batch item {j+1} error: {e}")
+                        print(f"Batch item {j+1} (ID: {mid}) error: {e}")
+                        skipped += 1
                     
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(1.5)
                 
-                await m.reply_text(f'🎉 **Batch Completed!**\n✅ Successfully Extracted: {success}/{n}')
+                await m.reply_text(
+                    f"🎉 **Batch Extraction Complete!**\n\n"
+                    f"📦 **Total Requested**: `{count}`\n"
+                    f"✅ **Successfully Extracted**: `{success}`\n"
+                    f"⏩ **Skipped / Empty**: `{skipped}`"
+                )
             finally:
                 await remove_active_batch(uid)
                 Z.pop(uid, None)
