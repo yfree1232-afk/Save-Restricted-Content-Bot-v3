@@ -3,12 +3,13 @@
 # See LICENSE file in the repository root for full license text.
 
 import os, re, time, asyncio, json
+from datetime import datetime
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pyrogram.errors import UserNotParticipant, FloodWait
 from config import API_ID, API_HASH, LOG_GROUP, STRING, FORCE_SUB, FREEMIUM_LIMIT, PREMIUM_LIMIT
 from utils.func import get_user_data, screenshot, thumbnail, get_video_metadata
-from utils.func import get_user_data_key, process_text_with_rules, is_premium_user, E, remove_user_session, remove_user_bot
+from utils.func import get_user_data_key, process_text_with_rules, is_premium_user, E, remove_user_session, remove_user_bot, get_log_channel
 from shared_client import app as X
 from plugins.settings import rename_file, active_conversations
 from plugins.start import subscribe as sub
@@ -227,25 +228,35 @@ async def prog(c, t, C, h, m, st):
             pass
         if p >= 100: P.pop(m, None)
 
-async def send_direct(c, m, tcid, ft=None, rtmid=None):
+async def send_direct(c, m, tcid, ft=None, rtmid=None, uid=None, i=None):
+    sent_msg = None
     try:
         if m.video:
-            await c.send_video(tcid, m.video.file_id, caption=ft, duration=m.video.duration, width=m.video.width, height=m.video.height, reply_to_message_id=rtmid)
+            sent_msg = await c.send_video(tcid, m.video.file_id, caption=ft, duration=m.video.duration, width=m.video.width, height=m.video.height, reply_to_message_id=rtmid)
         elif m.video_note:
-            await c.send_video_note(tcid, m.video_note.file_id, reply_to_message_id=rtmid)
+            sent_msg = await c.send_video_note(tcid, m.video_note.file_id, reply_to_message_id=rtmid)
         elif m.voice:
-            await c.send_voice(tcid, m.voice.file_id, reply_to_message_id=rtmid)
+            sent_msg = await c.send_voice(tcid, m.voice.file_id, reply_to_message_id=rtmid)
         elif m.sticker:
-            await c.send_sticker(tcid, m.sticker.file_id, reply_to_message_id=rtmid)
+            sent_msg = await c.send_sticker(tcid, m.sticker.file_id, reply_to_message_id=rtmid)
         elif m.audio:
-            await c.send_audio(tcid, m.audio.file_id, caption=ft, duration=m.audio.duration, performer=m.audio.performer, title=m.audio.title, reply_to_message_id=rtmid)
+            sent_msg = await c.send_audio(tcid, m.audio.file_id, caption=ft, duration=m.audio.duration, performer=m.audio.performer, title=m.audio.title, reply_to_message_id=rtmid)
         elif m.photo:
             photo_id = m.photo.file_id if hasattr(m.photo, 'file_id') else m.photo[-1].file_id
-            await c.send_photo(tcid, photo_id, caption=ft, reply_to_message_id=rtmid)
+            sent_msg = await c.send_photo(tcid, photo_id, caption=ft, reply_to_message_id=rtmid)
         elif m.document:
-            await c.send_document(tcid, m.document.file_id, caption=ft, file_name=m.document.file_name, reply_to_message_id=rtmid)
+            sent_msg = await c.send_document(tcid, m.document.file_id, caption=ft, file_name=m.document.file_name, reply_to_message_id=rtmid)
         else:
             return False
+
+        if sent_msg and hasattr(sent_msg, 'id'):
+            log_cid = await get_log_channel()
+            if log_cid and int(tcid) != int(log_cid):
+                try:
+                    log_header = f"📥 **#ExtractionLog**\n\n👤 **User**: `{uid}`\n🔗 **Source**: `{i}/{m.id}`\n⏰ **Time**: `{datetime.now().strftime('%d-%b-%Y %I:%M:%S %p')}`"
+                    await c.copy_message(int(log_cid), tcid, sent_msg.id, caption=log_header)
+                except Exception:
+                    pass
         return True
     except Exception as e:
         print(f'Direct send note: {e}')
@@ -272,7 +283,7 @@ async def process_msg(c, u, m, d, lt, uid, i, status_msg_id=None):
             
             # If public, try direct forwarding/sending first
             if lt == 'public':
-                sent = await send_direct(c, m, tcid, ft, rtmid)
+                sent = await send_direct(c, m, tcid, ft, rtmid, uid=uid, i=i)
                 if sent:
                     return 'Sent directly.'
             
@@ -335,6 +346,7 @@ async def process_msg(c, u, m, d, lt, uid, i, status_msg_id=None):
                 pass
             st = time.time()
 
+            sent_msg = None
             try:
                 video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.ogv']
                 audio_extensions = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.wma', '.m4a', '.opus', '.aiff', '.ac3']
@@ -344,30 +356,40 @@ async def process_msg(c, u, m, d, lt, uid, i, status_msg_id=None):
                     mtd = await get_video_metadata(f)
                     dur, h, w = mtd['duration'], mtd['width'], mtd['height']
                     th = await screenshot(f, dur, d)
-                    await c.send_video(tcid, video=f, caption=ft if m.caption else None, 
+                    sent_msg = await c.send_video(tcid, video=f, caption=ft if m.caption else None, 
                                     thumb=th, width=w, height=h, duration=dur, 
                                     progress=prog, progress_args=(c, int(d), p_id, st), 
                                     reply_to_message_id=rtmid)
                 elif m.video_note:
-                    await c.send_video_note(tcid, video_note=f, progress=prog, 
+                    sent_msg = await c.send_video_note(tcid, video_note=f, progress=prog, 
                                         progress_args=(c, int(d), p_id, st), reply_to_message_id=rtmid)
                 elif m.voice:
-                    await c.send_voice(tcid, f, progress=prog, progress_args=(c, int(d), p_id, st), 
+                    sent_msg = await c.send_voice(tcid, f, progress=prog, progress_args=(c, int(d), p_id, st), 
                                     reply_to_message_id=rtmid)
                 elif m.sticker:
-                    await c.send_sticker(tcid, m.sticker.file_id, reply_to_message_id=rtmid)
+                    sent_msg = await c.send_sticker(tcid, m.sticker.file_id, reply_to_message_id=rtmid)
                 elif m.audio or (m.document and file_ext in audio_extensions):
-                    await c.send_audio(tcid, audio=f, caption=ft if m.caption else None, 
+                    sent_msg = await c.send_audio(tcid, audio=f, caption=ft if m.caption else None, 
                                     thumb=th, progress=prog, progress_args=(c, int(d), p_id, st), 
                                     reply_to_message_id=rtmid)
                 elif m.photo:
-                    await c.send_photo(tcid, photo=f, caption=ft if m.caption else None, 
+                    sent_msg = await c.send_photo(tcid, photo=f, caption=ft if m.caption else None, 
                                     progress=prog, progress_args=(c, int(d), p_id, st), 
                                     reply_to_message_id=rtmid)
                 else:
-                    await c.send_document(tcid, document=f, caption=ft if m.caption else None, 
+                    sent_msg = await c.send_document(tcid, document=f, caption=ft if m.caption else None, 
                                         progress=prog, progress_args=(c, int(d), p_id, st), 
                                         reply_to_message_id=rtmid)
+
+                # Copy to Log Channel if active
+                if sent_msg and hasattr(sent_msg, 'id'):
+                    log_cid = await get_log_channel()
+                    if log_cid and int(tcid) != int(log_cid):
+                        try:
+                            log_header = f"📥 **#ExtractionLog**\n\n👤 **User**: `{uid}`\n🔗 **Source**: `{i}/{m.id}`\n⏰ **Time**: `{datetime.now().strftime('%d-%b-%Y %I:%M:%S %p')}`"
+                            await c.copy_message(int(log_cid), tcid, sent_msg.id, caption=log_header)
+                        except Exception as le:
+                            print(f"Log channel copy note: {le}")
             except Exception as e:
                 if os.path.exists(f): os.remove(f)
                 return f'Upload failed: {str(e)[:30]}'
@@ -381,7 +403,14 @@ async def process_msg(c, u, m, d, lt, uid, i, status_msg_id=None):
             return 'Done.'
             
         elif m.text:
-            await c.send_message(tcid, text=m.text.markdown, reply_to_message_id=rtmid)
+            sent_msg = await c.send_message(tcid, text=m.text.markdown, reply_to_message_id=rtmid)
+            if sent_msg:
+                log_cid = await get_log_channel()
+                if log_cid and int(tcid) != int(log_cid):
+                    try:
+                        await c.send_message(int(log_cid), f"📥 **#TextLog**\n👤 **User**: `{uid}`\n💬 **Content**:\n{m.text.markdown[:500]}")
+                    except Exception:
+                        pass
             return 'Sent text.'
         else:
             return 'Unsupported format'
