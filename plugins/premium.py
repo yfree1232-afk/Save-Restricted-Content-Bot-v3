@@ -10,7 +10,8 @@ from config import OWNER_ID, JOIN_LINK, ADMIN_CONTACT, P0
 from utils.func import (
     add_premium_user, remove_premium_user, is_premium_user, 
     get_premium_details, generate_redeem_code, redeem_code, 
-    get_user_data, premium_users_collection
+    get_user_data, premium_users_collection,
+    get_log_channel, set_log_channel, remove_log_channel
 )
 from plugins.start import subscribe
 
@@ -255,3 +256,58 @@ async def transfer_cmd(client, message: Message):
             pass
     except ValueError:
         await message.reply_text("❌ Target User ID must be a valid number.")
+
+@app.on_message(filters.command(["setlog", "setlogchannel"]) & filters.private)
+async def set_log_channel_cmd(client, message: Message):
+    user_id = message.from_user.id
+    if user_id not in OWNER_ID:
+        await message.reply_text("⛔ Owner only command.")
+        return
+
+    parts = message.text.strip().split()
+    if len(parts) != 2:
+        await message.reply_text(
+            "⚠️ **Usage**: `/setlog <channel_id>`\n\n"
+            "**Example**: `/setlog -1001234567890`\n\n"
+            "👉 *Make sure this bot is added as **Admin** in the target log channel!*"
+        )
+        return
+
+    try:
+        cid = int(parts[1])
+        try:
+            await client.send_message(
+                cid, 
+                "✅ **Log Channel Connected Successfully!**\n\nAll media extracted by users will be recorded here."
+            )
+            await set_log_channel(cid)
+            await message.reply_text(f"✅ **Log Channel Configured!**\n\nChannel ID: `{cid}`\nTest ping sent successfully!")
+        except Exception as e:
+            await message.reply_text(
+                f"❌ **Failed to send message to Log Channel**: `{e}`\n\n"
+                "👉 Please ensure the bot is added as an **Admin** with permission to post messages in that channel."
+            )
+    except ValueError:
+        await message.reply_text("❌ Channel ID must be a valid integer starting with `-100`.")
+
+@app.on_message(filters.command(["remlog", "removelog"]) & filters.private)
+async def remove_log_channel_cmd(client, message: Message):
+    user_id = message.from_user.id
+    if user_id not in OWNER_ID:
+        await message.reply_text("⛔ Owner only command.")
+        return
+    await remove_log_channel()
+    await message.reply_text("✅ Log Channel removed. Extractions will no longer be forwarded to log channel.")
+
+@app.on_message(filters.command(["getlog", "log"]) & filters.private)
+async def get_log_channel_cmd(client, message: Message):
+    user_id = message.from_user.id
+    if user_id not in OWNER_ID:
+        await message.reply_text("⛔ Owner only command.")
+        return
+    log_cid = await get_log_channel()
+    if log_cid:
+        await message.reply_text(f"📋 **Current Log Channel**: `{log_cid}`")
+    else:
+        await message.reply_text("ℹ️ No Log Channel is currently configured. Use `/setlog <channel_id>` to set one.")
+
