@@ -339,3 +339,53 @@ async def get_premium_details(user_id):
     except Exception as e:
         logger.error(f"Error getting premium details for {user_id}: {e}")
         return None
+
+
+async def remove_premium_user(user_id):
+    try:
+        res = await premium_users_collection.delete_one({"user_id": user_id})
+        return res.deleted_count > 0
+    except Exception as e:
+        logger.error(f"Error removing premium for {user_id}: {e}")
+        return False
+
+
+async def generate_redeem_code(duration_value: int, duration_unit: str):
+    import string, random
+    try:
+        code_part1 = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        code_part2 = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        code = f"PREM-{code_part1}-{code_part2}"
+        await codedb.insert_one({
+            "code": code,
+            "duration_value": duration_value,
+            "duration_unit": duration_unit,
+            "created_at": datetime.now(),
+            "used": False
+        })
+        return True, code
+    except Exception as e:
+        logger.error(f"Error generating redeem code: {e}")
+        return False, str(e)
+
+
+async def redeem_code(user_id: int, code: str):
+    try:
+        clean_code = code.strip().upper()
+        doc = await codedb.find_one({"code": clean_code, "used": False})
+        if not doc:
+            return False, "❌ Invalid or already redeemed code."
+        
+        val = doc["duration_value"]
+        unit = doc["duration_unit"]
+        ok, res = await add_premium_user(user_id, val, unit)
+        if ok:
+            await codedb.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {"used": True, "used_by": user_id, "used_at": datetime.now()}}
+            )
+            return True, res
+        return False, res
+    except Exception as e:
+        logger.error(f"Error redeeming code: {e}")
+        return False, str(e)
