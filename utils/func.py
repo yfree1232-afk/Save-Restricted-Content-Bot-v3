@@ -427,3 +427,36 @@ async def remove_log_channel():
     except Exception as e:
         logger.error(f"Error removing log channel: {e}")
         return False
+
+
+async def get_target_channel():
+    try:
+        doc = await bot_settings_collection.find_one({"key": "target_channel"})
+        if doc and doc.get("channel_id"):
+            return int(doc["channel_id"])
+        return None
+    except Exception as e:
+        logger.error(f"Error getting target channel: {e}")
+        return None
+
+
+async def set_target_channel(channel_id: int):
+    try:
+        await bot_settings_collection.update_one(
+            {"key": "target_channel"},
+            {"$set": {"channel_id": int(channel_id), "updated_at": datetime.now()}},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Error setting target channel: {e}")
+        return False
+
+
+async def remove_target_channel():
+    try:
+        await bot_settings_collection.delete_one({"key": "target_channel"})
+        return True
+    except Exception as e:
+        logger.error(f"Error removing target channel: {e}")
+        return False
