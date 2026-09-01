@@ -52,6 +52,9 @@ async def set_commands_handler(_, message: Message):
         BotCommand("add", "➕ Add premium (Owner only)"),
         BotCommand("rem", "➖ Remove premium (Owner only)"),
         BotCommand("gencode", "🎟️ Generate code (Owner only)"),
+        BotCommand("setlog", "📋 Set Log Channel (Owner only)"),
+        BotCommand("remlog", "🗑️ Remove Log Channel (Owner only)"),
+        BotCommand("getlog", "🔍 View Log Channel (Owner only)"),
         BotCommand("cancel", "🚫 Cancel current process"),
         BotCommand("stop", "🛑 Stop ongoing batch"),
         BotCommand("help", "❓ Help & tutorial")
