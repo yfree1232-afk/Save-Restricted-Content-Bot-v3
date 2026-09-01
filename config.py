@@ -20,17 +20,17 @@ YTUB_COOKIES = """
 """
 
 # ─── BOT / DATABASE CONFIG ──────────────────────────────────────────────────────
-API_ID       = os.getenv("API_ID", "1888747")
-API_HASH     = os.getenv("API_HASH", "0d707e8ae15254b1453c614bf3026c32")
-BOT_TOKEN    = os.getenv("BOT_TOKEN", "8016777159:AAEXdUNCXs_M-LWa3RIo6b48l_fSg57DsXI")
+API_ID       = int(os.getenv("API_ID", "30929822"))
+API_HASH     = os.getenv("API_HASH", "8586e9580c6480b65d23150cec959506")
+BOT_TOKEN    = os.getenv("BOT_TOKEN", "8016777159:AAGklHcDtHMNMq1e2M92iSRNCbrwEu84Wdg")
 MONGO_DB     = os.getenv("MONGO_DB", "mongodb+srv://yfree1232_db_user:NtdjPUmAgl7iEuKE@uploder.6fhrdxh.mongodb.net/?appName=Uploder")
-DB_NAME      = os.getenv("DB_NAME", "Uploder")
+DB_NAME      = os.getenv("DB_NAME", "save_restricted_bot")
 
 # ─── OWNER / CONTROL SETTINGS ───────────────────────────────────────────────────
-OWNER_ID     = list(map(int, os.getenv("OWNER_ID", "7335874062").split()))  # space-separated list
+OWNER_ID     = [int(x) for x in os.getenv("OWNER_ID", "8721437284 8553407328").split() if x.isdigit()]
 STRING       = os.getenv("STRING", None)  # optional session string
-LOG_GROUP    = int(os.getenv("LOG_GROUP", "-1003802787726"))
-FORCE_SUB    = int(os.getenv("FORCE_SUB", "-1003626124472"))
+LOG_GROUP    = int(os.getenv("LOG_GROUP", "-1001234456"))
+FORCE_SUB    = int(os.getenv("FORCE_SUB", "0"))
 
 # ─── SECURITY KEYS ──────────────────────────────────────────────────────────────
 MASTER_KEY   = os.getenv("MASTER_KEY", "gK8HzLfT9QpViJcYeB5wRa3DmN7P2xUq")  # session encryption
@@ -41,12 +41,12 @@ YT_COOKIES   = os.getenv("YT_COOKIES", YTUB_COOKIES)
 INSTA_COOKIES = os.getenv("INSTA_COOKIES", INST_COOKIES)
 
 # ─── USAGE LIMITS ───────────────────────────────────────────────────────────────
-FREEMIUM_LIMIT = int(os.getenv("FREEMIUM_LIMIT", "10"))
+FREEMIUM_LIMIT = int(os.getenv("FREEMIUM_LIMIT", "0"))
 PREMIUM_LIMIT  = int(os.getenv("PREMIUM_LIMIT", "500"))
 
 # ─── UI / LINKS ─────────────────────────────────────────────────────────────────
-JOIN_LINK     = os.getenv("JOIN_LINK", "https://t.me/adisxverified")
-ADMIN_CONTACT = os.getenv("ADMIN_CONTACT", "http://t.me/srcsupportsbot")
+JOIN_LINK     = os.getenv("JOIN_LINK", "https://t.me/team_spy_pro")
+ADMIN_CONTACT = os.getenv("ADMIN_CONTACT", "https://t.me/username_of_admin")
 
 # ════════════════════════════════════════════════════════════════════════════════
 # ░ PREMIUM PLANS CONFIGURATION
@@ -76,6 +76,3 @@ P0 = {
 # ════════════════════════════════════════════════════════════════════════════════
 # ░ DEVGAGAN
 # ════════════════════════════════════════════════════════════════════════════════
-
-
-
