@@ -21,3 +21,13 @@ def set_user_step(user_id, step=None):
 
 def get_user_step(user_id):
     return user_steps.get(user_id)
+
+
+settings_conversations = {}
+
+def settings_filter_func(_, __, message):
+    if not message.from_user:
+        return False
+    return message.from_user.id in settings_conversations
+
+settings_in_progress = filters.create(settings_filter_func)
