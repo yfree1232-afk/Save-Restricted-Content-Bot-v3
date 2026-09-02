@@ -3,24 +3,30 @@
 # See LICENSE file in the repository root for full license text.
 
 from telethon import TelegramClient
+from telethon.sessions import StringSession
 from config import API_ID, API_HASH, BOT_TOKEN, STRING
 from pyrogram import Client
 import sys
 
-client = TelegramClient("telethonbot", API_ID, API_HASH)
+client = TelegramClient(StringSession(), API_ID, API_HASH)
 app = Client("pyrogrambot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, in_memory=True, workers=20, max_concurrent_transmissions=8)
 userbot = Client("4gbbot", api_id=API_ID, api_hash=API_HASH, session_string=STRING, in_memory=True, workers=20, max_concurrent_transmissions=8) if STRING else None
 
 async def start_client():
-    if not client.is_connected():
-        await client.start(bot_token=BOT_TOKEN)
-        print("SpyLib started...")
+    try:
+        if not client.is_connected():
+            await client.start(bot_token=BOT_TOKEN)
+            print("SpyLib started...")
+    except Exception as e:
+        print(f"Telethon start notice: {e}")
+        
     if STRING and userbot:
         try:
             await userbot.start()
             print("Userbot started...")
         except Exception as e:
             print(f"Userbot session error: {e}")
+            
     await app.start()
     print("Pyro App Started...")
     return client, app, userbot
