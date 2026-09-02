@@ -170,27 +170,30 @@ async def terms_cmd(client, message: Message):
 async def plan_cmd(client, message: Message):
     plan_text = (
         "💎 **Premium Subscription Plans**\n\n"
-        "🚀 **Benefits**:\n"
+        "🚀 **Premium Benefits**:\n"
         "• Extract up to **500+ files per batch**\n"
-        "• Unrestricted multi-stream high download speeds\n"
-        "• Priority task processing & 24/7 uptime\n\n"
-        "⭐ **Available Plans** (Telegram Stars):\n"
-        f"• **Daily**: {P0['d']['s']} Star(s)\n"
-        f"• **Weekly**: {P0['w']['s']} Stars\n"
-        f"• **Monthly**: {P0['m']['s']} Stars\n\n"
-        "Select an option below to purchase or redeem ⤵️"
+        "• High-speed multi-stream download & upload (8x)\n"
+        "• Priority server processing & 24/7 uptime\n\n"
+        "💰 **Pricing Options**:\n"
+        f"• ☀️ **Daily Plan (1 Day)**: `₹20`  |  `20 ⭐ Stars`\n"
+        f"• 🗓️ **Weekly Plan (7 Days)**: `₹70`  |  `70 ⭐ Stars`\n"
+        f"• 📅 **Monthly Plan (30 Days)**: `₹150`  |  `150 ⭐ Stars`\n\n"
+        "⚡ **Instant Activation**: Click a Stars button below for automatic instant activation, or contact Admin for UPI / QR payment ⤵️"
     )
     buttons = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton(f"⭐ Daily ({P0['d']['s']} Star)", callback_data="p_d"),
-            InlineKeyboardButton(f"⭐ Weekly ({P0['w']['s']} Stars)", callback_data="p_w")
+            InlineKeyboardButton("⭐ Daily (20 Stars)", callback_data="p_d"),
+            InlineKeyboardButton("⭐ Weekly (70 Stars)", callback_data="p_w")
         ],
         [
-            InlineKeyboardButton(f"⭐ Monthly ({P0['m']['s']} Stars)", callback_data="p_m")
+            InlineKeyboardButton("⭐ Monthly (150 Stars)", callback_data="p_m")
+        ],
+        [
+            InlineKeyboardButton("💳 Buy via UPI / Contact Admin", url=ADMIN_CONTACT)
         ],
         [
             InlineKeyboardButton("🎟️ Redeem Code", callback_data="btn_redeem_info"),
-            InlineKeyboardButton("💬 Admin Support", url=ADMIN_CONTACT)
+            InlineKeyboardButton("📢 Channel", url=JOIN_LINK)
         ]
     ])
     await message.reply_text(plan_text, reply_markup=buttons)
@@ -199,27 +202,30 @@ async def plan_cmd(client, message: Message):
 async def see_plan_cb(client, callback_query: CallbackQuery):
     plan_text = (
         "💎 **Premium Subscription Plans**\n\n"
-        "🚀 **Benefits**:\n"
+        "🚀 **Premium Benefits**:\n"
         "• Extract up to **500+ files per batch**\n"
-        "• Unrestricted multi-stream high download speeds\n"
-        "• Priority task processing & 24/7 uptime\n\n"
-        "⭐ **Available Plans** (Telegram Stars):\n"
-        f"• **Daily**: {P0['d']['s']} Star(s)\n"
-        f"• **Weekly**: {P0['w']['s']} Stars\n"
-        f"• **Monthly**: {P0['m']['s']} Stars\n\n"
-        "Select an option below to purchase or redeem ⤵️"
+        "• High-speed multi-stream download & upload (8x)\n"
+        "• Priority server processing & 24/7 uptime\n\n"
+        "💰 **Pricing Options**:\n"
+        f"• ☀️ **Daily Plan (1 Day)**: `₹20`  |  `20 ⭐ Stars`\n"
+        f"• 🗓️ **Weekly Plan (7 Days)**: `₹70`  |  `70 ⭐ Stars`\n"
+        f"• 📅 **Monthly Plan (30 Days)**: `₹150`  |  `150 ⭐ Stars`\n\n"
+        "⚡ **Instant Activation**: Click a Stars button below for automatic instant activation, or contact Admin for UPI / QR payment ⤵️"
     )
     buttons = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton(f"⭐ Daily ({P0['d']['s']} Star)", callback_data="p_d"),
-            InlineKeyboardButton(f"⭐ Weekly ({P0['w']['s']} Stars)", callback_data="p_w")
+            InlineKeyboardButton("⭐ Daily (20 Stars)", callback_data="p_d"),
+            InlineKeyboardButton("⭐ Weekly (70 Stars)", callback_data="p_w")
         ],
         [
-            InlineKeyboardButton(f"⭐ Monthly ({P0['m']['s']} Stars)", callback_data="p_m")
+            InlineKeyboardButton("⭐ Monthly (150 Stars)", callback_data="p_m")
+        ],
+        [
+            InlineKeyboardButton("💳 Buy via UPI / Contact Admin", url=ADMIN_CONTACT)
         ],
         [
             InlineKeyboardButton("🎟️ Redeem Code", callback_data="btn_redeem_info"),
-            InlineKeyboardButton("💬 Admin Support", url=ADMIN_CONTACT)
+            InlineKeyboardButton("📢 Channel", url=JOIN_LINK)
         ]
     ])
     await callback_query.message.edit_text(plan_text, reply_markup=buttons)
