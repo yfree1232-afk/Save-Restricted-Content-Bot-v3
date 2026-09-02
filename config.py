@@ -46,7 +46,7 @@ PREMIUM_LIMIT  = int(os.getenv("PREMIUM_LIMIT", "500"))
 
 # ─── UI / LINKS ─────────────────────────────────────────────────────────────────
 JOIN_LINK     = os.getenv("JOIN_LINK", "https://t.me/voltexbots")
-ADMIN_CONTACT = os.getenv("ADMIN_CONTACT", "https://t.me/voltexbots")
+ADMIN_CONTACT = os.getenv("ADMIN_CONTACT", "https://t.me/voltexSupport")
 
 # ════════════════════════════════════════════════════════════════════════════════
 # ░ PREMIUM PLANS CONFIGURATION
