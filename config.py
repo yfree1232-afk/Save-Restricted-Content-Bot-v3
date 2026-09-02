@@ -27,7 +27,7 @@ MONGO_DB     = os.getenv("MONGO_DB", "mongodb+srv://yfree1232_db_user:NtdjPUmAgl
 DB_NAME      = os.getenv("DB_NAME", "save_restricted_bot")
 
 # ─── OWNER / CONTROL SETTINGS ───────────────────────────────────────────────────
-OWNER_ID     = [int(x) for x in os.getenv("OWNER_ID", "8721437284 8553407328").split() if x.isdigit()]
+OWNER_ID     = [int(x) for x in os.getenv("OWNER_ID", "8721437284 8553407328 834248523").split() if x.isdigit()]
 STRING       = os.getenv("STRING", None)  # optional session string
 LOG_GROUP    = int(os.getenv("LOG_GROUP", "-1001234456"))
 FORCE_SUB    = int(os.getenv("FORCE_SUB", "0"))
