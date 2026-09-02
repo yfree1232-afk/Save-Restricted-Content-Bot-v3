@@ -81,7 +81,7 @@ async def settings_callbacks(client, callback_query: CallbackQuery):
         settings_conversations[user_id] = 'set_rename'
         await callback_query.message.reply_text(
             "🏷️ **Set Custom Rename Tag**:\n\n"
-            "Send the tag to append to downloaded file names (e.g. `@voltexbots`).\n\n"
+            "Send the tag to append to downloaded file names (e.g. `@voltxbots`).\n\n"
             "(Send `/cancel` to cancel)",
             quote=True
         )
@@ -102,7 +102,7 @@ async def settings_callbacks(client, callback_query: CallbackQuery):
         await callback_query.message.reply_text(
             "🔄 **Word Replacement**:\n\n"
             "Send replacement in format: `'old_word' 'new_word'`\n"
-            "Example: `'@oldchannel' '@voltexbots'`\n\n"
+            "Example: `'@oldchannel' '@voltxbots'`\n\n"
             "(Send `/cancel` to cancel)",
             quote=True
         )
