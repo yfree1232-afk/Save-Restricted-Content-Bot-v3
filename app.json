@@ -83,12 +83,12 @@
     },
     "ADMIN_CONTACT": {
       "description": "type admin contact link",
-      "value": "https://t.me/voltexSupport",
+      "value": "https://t.me/voltxTGSupport",
       "required": true
     },
     "JOIN_LINK": {
       "description": "type join channel link which comes on /start",
-      "value": "https://t.me/voltexbots",
+      "value": "https://t.me/voltxbots",
       "required": true
     }
   },
