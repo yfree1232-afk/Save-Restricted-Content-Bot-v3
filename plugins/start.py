@@ -90,7 +90,7 @@ help_pages = [
         "• **/add <id> <val> <unit>**: Grant premium access.\n"
         "• **/rem <id>**: Revoke premium access.\n"
         "• **/gencode <val> <unit>**: Generate redeemable gift codes.\n\n"
-        "📢 **Updates Channel**: @voltexbots"
+        "📢 **Updates Channel**: @voltxbots"
     )
 ]
 
@@ -110,7 +110,7 @@ async def send_or_edit_help_page(_, message, page_number):
         InlineKeyboardButton("⚙️ Settings", callback_data="open_settings")
     ]
     channel_row = [
-        InlineKeyboardButton("📢 Channel @voltexbots", url=JOIN_LINK)
+        InlineKeyboardButton("📢 Channel @voltxbots", url=JOIN_LINK)
     ]
     
     kb_rows = []
@@ -156,7 +156,7 @@ async def terms_cmd(client, message: Message):
         "📜 **Terms and Conditions**\n\n"
         "✨ We do not host or promote copyrighted content. The bot is a tool for personal backup.\n"
         "✨ Premium validity starts immediately upon activation.\n"
-        "✨ For queries and support, contact our official channel @voltexbots."
+        "✨ For queries and support, contact @voltxTGSupport or our channel @voltxbots."
     )
     buttons = InlineKeyboardMarkup([
         [
@@ -238,7 +238,7 @@ async def see_terms_cb(client, callback_query: CallbackQuery):
         "📜 **Terms and Conditions**\n\n"
         "✨ We do not host or promote copyrighted content. The bot is a tool for personal backup.\n"
         "✨ Premium validity starts immediately upon activation.\n"
-        "✨ For queries and support, contact our official channel @voltexbots."
+        "✨ For queries and support, contact @voltxTGSupport or our channel @voltxbots."
     )
     buttons = InlineKeyboardMarkup([
         [
