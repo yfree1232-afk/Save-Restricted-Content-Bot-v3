@@ -1,34 +1,38 @@
-# Copyright (c) 2025 devgagan : https://github.com/devgaganin.  
-# Licensed under the GNU General Public License v3.0.  
-# See LICENSE file in the repository root for full license text.
-
 from pyrogram import filters as f
 from shared_client import app
 from pyrogram.types import InlineKeyboardButton as B, InlineKeyboardMarkup as M, LabeledPrice as P, PreCheckoutQuery as Q
 from datetime import timedelta as T
 from utils.func import add_premium_user as apu
-from config import P0
+from config import P0, OWNER_ID, ADMIN_CONTACT, JOIN_LINK
 
 @app.on_message(f.command("pay") & f.private)
 async def p(c, m):
     kb = M([
         [
-            B(f"⭐ {P0['d']['l']} - {P0['d']['s']} Star", callback_data="p_d")
+            B(f"⭐ Daily Plan — 20 Stars (₹20)", callback_data="p_d")
         ],
         [
-            B(f"⭐ {P0['w']['l']} - {P0['w']['s']} Stars", callback_data="p_w")
+            B(f"⭐ Weekly Plan — 70 Stars (₹70)", callback_data="p_w")
         ],
         [
-            B(f"⭐ {P0['m']['l']} - {P0['m']['s']} Stars", callback_data="p_m")
+            B(f"⭐ Monthly Plan — 150 Stars (₹150)", callback_data="p_m")
+        ],
+        [
+            B("💳 Buy via UPI / Contact Admin", url=ADMIN_CONTACT)
+        ],
+        [
+            B("🎟️ Redeem Gift Code", callback_data="btn_redeem_info"),
+            B("📢 Channel", url=JOIN_LINK)
         ]
     ])
     
     txt = (
-        "💎 **Choose your premium plan:**\n\n"
-        f"📅 **{P0['d']['l']}** — {P0['d']['s']} Star\n"
-        f"🗓️ **{P0['w']['l']}** — {P0['w']['s']} Stars\n"
-        f"📆 **{P0['m']['l']}** — {P0['m']['s']} Stars\n\n"
-        "Select a plan below to continue ⤵️"
+        "💎 **Choose Your Premium Subscription Plan:**\n\n"
+        "• ☀️ **Daily Plan (1 Day)**: `₹20`  |  `20 ⭐ Stars`\n"
+        "• 🗓️ **Weekly Plan (7 Days)**: `₹70`  |  `70 ⭐ Stars`\n"
+        "• 📅 **Monthly Plan (30 Days)**: `₹150`  |  `150 ⭐ Stars`\n\n"
+        "⚡ **Instant Automatic Activation**: Click a Stars button below to pay directly in Telegram — subscription activates in 1 second!\n"
+        "👉 For UPI / QR code payment, click **Buy via UPI** to contact Admin."
     )
     await m.reply_text(txt, reply_markup=kb)
     
@@ -40,12 +44,12 @@ async def i(c, q):
         await c.send_invoice(
             chat_id=q.from_user.id,
             title=f"Premium {pi['l']}",
-            description=f"{pi['du']} {pi['u']} subscription",
+            description=f"Instant access to restricted content saver for {pi['du']} {pi['u']}",
             payload=f"{pl}_{q.from_user.id}",
             currency="XTR",
             prices=[P(label=f"Premium {pi['l']}", amount=pi['s'])]
         )
-        await q.answer("Invoice sent 💫")
+        await q.answer("Invoice sent 💫 Click below to pay with Stars!")
     except Exception as e:
         await q.answer(f"Err: {e}", show_alert=True)
 
@@ -64,24 +68,28 @@ async def sp(c, m):
         e = r + T(hours=5, minutes=30)
         d = e.strftime('%d-%b-%Y %I:%M:%S %p')
         await m.reply_text(
-            f"✅ **Paid!**\n\n"
-            f"💎 Premium {pi['l']} active!\n"
-            f"⭐ {p.total_amount}\n"
-            f"⏰ Till: {d} IST\n"
-            f"🔖 Txn: `{p.telegram_payment_charge_id}`"
+            f"🎉 **Payment Successful & Activated!**\n\n"
+            f"💎 **Plan**: Premium {pi['l']}\n"
+            f"⭐ **Stars Paid**: {p.total_amount} ⭐\n"
+            f"⏰ **Valid Till**: `{d} IST`\n"
+            f"🔖 **Transaction ID**: `{p.telegram_payment_charge_id}`\n\n"
+            f"Thank you for your purchase! You now have unrestricted access. Use `/batch` to start."
         )
         for o in OWNER_ID:
             try:
-                await c.send_message(o, f"🎉 User {u} just purchased premium ({pi['l']}), txn id: `{p.telegram_payment_charge_id}`.")
+                await c.send_message(o, f"🎉 **New Star Purchase!**\n👤 User: `{u}`\n💎 Plan: `{pi['l']}`\n⭐ Stars: `{p.total_amount}`\n🔖 Txn: `{p.telegram_payment_charge_id}`")
             except Exception:
                 pass
     else:
         await m.reply_text(
-            f"⚠️ Paid but premium failed.\nTxn `{p.telegram_payment_charge_id}`"
+            f"⚠️ Payment received but activation failed. Contact admin with Txn ID: `{p.telegram_payment_charge_id}`"
         )
         for o in OWNER_ID:
-            await c.send_message(o,
-                f"⚠️ Issue!\nUser {u}\nPlan {pi['l']}\nTxn {p.telegram_payment_charge_id}\nErr {r}"
-            )
+            try:
+                await c.send_message(o,
+                    f"⚠️ Payment issue!\nUser `{u}`\nPlan `{pi['l']}`\nTxn `{p.telegram_payment_charge_id}`\nErr: `{r}`"
+                )
+            except Exception:
+                pass
 
 
