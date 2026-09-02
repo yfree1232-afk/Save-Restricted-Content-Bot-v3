@@ -1,11 +1,9 @@
-# Copyright (c) 2025 devgagan : https://github.com/devgaganin.  
-# Licensed under the GNU General Public License v3.0.  
-# See LICENSE file in the repository root for full license text.
-
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from config import API_ID, API_HASH, BOT_TOKEN, STRING
 from pyrogram import Client
+from pyrogram.errors import FloodWait
+import asyncio
 import sys
 
 client = TelegramClient(StringSession(), API_ID, API_HASH)
@@ -27,6 +25,16 @@ async def start_client():
         except Exception as e:
             print(f"Userbot session error: {e}")
             
-    await app.start()
-    print("Pyro App Started...")
+    while True:
+        try:
+            await app.start()
+            print("Pyro App Started...")
+            break
+        except FloodWait as f:
+            print(f"Pyrogram FloodWait: Waiting {f.value}s for Telegram rate limit to clear...")
+            await asyncio.sleep(f.value + 2)
+        except Exception as e:
+            print(f"Pyrogram start error: {e}")
+            break
+            
     return client, app, userbot
