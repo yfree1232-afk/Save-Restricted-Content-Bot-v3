@@ -25,5 +25,5 @@ async def stats_cmd(client, message: Message):
         f"💎 **Active Premium Members**: `{total_prem}`\n"
         f"🎟️ **Unused Redeem Codes**: `{total_codes}`\n"
         f"⚡ **Engine**: `Pyrofork + Multi-Stream (8x)`\n"
-        f"📢 **Channel**: `@voltexbots`"
+        f"📢 **Channel**: `@voltxbots`"
     )
