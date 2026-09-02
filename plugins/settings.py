@@ -12,6 +12,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, 
 from shared_client import app
 from config import OWNER_ID, JOIN_LINK
 from utils.func import get_user_data_key, save_user_data, users_collection, remove_user_session
+from utils.custom_filters import settings_conversations, settings_in_progress
 
 VIDEO_EXTENSIONS = {
     'mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm',
@@ -25,8 +26,6 @@ Customize how the bot processes and uploads your files:
 • Replace or remove unwanted words
 • Set custom video/file thumbnail
 • Manage your session login"""
-
-active_conversations = {}
 
 def get_settings_keyboard():
     return InlineKeyboardMarkup([
@@ -68,7 +67,7 @@ async def settings_callbacks(client, callback_query: CallbackQuery):
         return
 
     if data == 'set_chat':
-        active_conversations[user_id] = 'set_chat'
+        settings_conversations[user_id] = 'set_chat'
         await callback_query.message.reply_text(
             "📝 **Set Destination Chat ID**:\n\n"
             "Send the ID of the channel/group where files should be uploaded (e.g. `-1001234567890`).\n"
@@ -79,7 +78,7 @@ async def settings_callbacks(client, callback_query: CallbackQuery):
         await callback_query.answer()
 
     elif data == 'set_rename':
-        active_conversations[user_id] = 'set_rename'
+        settings_conversations[user_id] = 'set_rename'
         await callback_query.message.reply_text(
             "🏷️ **Set Custom Rename Tag**:\n\n"
             "Send the tag to append to downloaded file names (e.g. `@voltexbots`).\n\n"
@@ -89,7 +88,7 @@ async def settings_callbacks(client, callback_query: CallbackQuery):
         await callback_query.answer()
 
     elif data == 'set_caption':
-        active_conversations[user_id] = 'set_caption'
+        settings_conversations[user_id] = 'set_caption'
         await callback_query.message.reply_text(
             "📋 **Set Custom Caption**:\n\n"
             "Send the custom caption to add to all your uploaded files.\n\n"
@@ -99,7 +98,7 @@ async def settings_callbacks(client, callback_query: CallbackQuery):
         await callback_query.answer()
 
     elif data == 'set_replacement':
-        active_conversations[user_id] = 'set_replacement'
+        settings_conversations[user_id] = 'set_replacement'
         await callback_query.message.reply_text(
             "🔄 **Word Replacement**:\n\n"
             "Send replacement in format: `'old_word' 'new_word'`\n"
@@ -110,7 +109,7 @@ async def settings_callbacks(client, callback_query: CallbackQuery):
         await callback_query.answer()
 
     elif data == 'set_delete':
-        active_conversations[user_id] = 'set_delete'
+        settings_conversations[user_id] = 'set_delete'
         await callback_query.message.reply_text(
             "🗑️ **Remove Words**:\n\n"
             "Send words separated by spaces to remove them completely from filenames and captions.\n\n"
@@ -120,7 +119,7 @@ async def settings_callbacks(client, callback_query: CallbackQuery):
         await callback_query.answer()
 
     elif data == 'set_thumb':
-        active_conversations[user_id] = 'set_thumb'
+        settings_conversations[user_id] = 'set_thumb'
         await callback_query.message.reply_text(
             "🖼️ **Set Custom Thumbnail**:\n\n"
             "Please send the **Photo** you want to use as your custom thumbnail.\n\n"
@@ -169,48 +168,51 @@ async def settings_callbacks(client, callback_query: CallbackQuery):
         else:
             await callback_query.answer("ℹ️ You were not logged in.", show_alert=True)
 
-@app.on_message(filters.photo & filters.private)
+@app.on_message(settings_in_progress & filters.photo & filters.private)
 async def photo_conversation_handler(client, message: Message):
     user_id = message.from_user.id
-    if user_id in active_conversations and active_conversations[user_id] == 'set_thumb':
+    if user_id in settings_conversations and settings_conversations[user_id] == 'set_thumb':
         try:
             thumb_path = f'{user_id}.jpg'
             if os.path.exists(thumb_path):
                 os.remove(thumb_path)
             await message.download(file_name=thumb_path)
-            del active_conversations[user_id]
+            del settings_conversations[user_id]
             await message.reply_text("✅ **Custom Thumbnail Saved Successfully!**")
         except Exception as e:
             await message.reply_text(f"❌ Error saving thumbnail: {e}")
 
-@app.on_message(filters.text & filters.private & ~filters.command([
+@app.on_message(settings_in_progress & filters.text & filters.private & ~filters.command([
     'start', 'batch', 'cancel', 'login', 'logout', 'stop', 'set', 'pay',
     'redeem', 'gencode', 'single', 'generate', 'keyinfo', 'encrypt', 'decrypt',
-    'keys', 'setbot', 'rembot', 'settings', 'plan', 'terms', 'help', 'stats', 'status', 'add', 'rem', 'transfer', 'myplan']))
+    'keys', 'setbot', 'rembot', 'settings', 'plan', 'terms', 'help', 'stats', 'status', 
+    'add', 'rem', 'transfer', 'myplan', 'setlog', 'setlogchannel', 'remlog', 'removelog',
+    'getlog', 'log', 'settarget', 'settargetchannel', 'gettarget', 'target', 'remtarget',
+    'removetarget', 'fwd', 'forward', 'copybatch', 'sendto', 'stopfwd', 'cancelfwd']))
 async def settings_text_input_handler(client, message: Message):
     user_id = message.from_user.id
-    if user_id not in active_conversations:
-        return  # Let batch.py handle normal link processing
+    if user_id not in settings_conversations:
+        return
 
-    conv_type = active_conversations[user_id]
+    conv_type = settings_conversations[user_id]
     text = message.text.strip()
 
     if conv_type == 'set_chat':
         chat_id = text.strip()
         await save_user_data(user_id, 'chat_id', chat_id)
-        del active_conversations[user_id]
+        del settings_conversations[user_id]
         await message.reply_text(f"✅ **Chat ID set to**: `{chat_id}`")
 
     elif conv_type == 'set_rename':
         rename_tag = text.strip()
         await save_user_data(user_id, 'rename_tag', rename_tag)
-        del active_conversations[user_id]
+        del settings_conversations[user_id]
         await message.reply_text(f"✅ **Rename tag set to**: `{rename_tag}`")
 
     elif conv_type == 'set_caption':
         caption = text.strip()
         await save_user_data(user_id, 'caption', caption)
-        del active_conversations[user_id]
+        del settings_conversations[user_id]
         await message.reply_text(f"✅ **Custom caption set to**:\n\n{caption}")
 
     elif conv_type == 'set_replacement':
@@ -225,7 +227,7 @@ async def settings_text_input_handler(client, message: Message):
             replacements = await get_user_data_key(user_id, 'replacement_words', {})
             replacements[old_w] = new_w
             await save_user_data(user_id, 'replacement_words', replacements)
-            del active_conversations[user_id]
+            del settings_conversations[user_id]
             await message.reply_text(f"✅ **Replacement Saved**: `{old_w}` ➔ `{new_w}`")
         except Exception as e:
             await message.reply_text(f"❌ Format error: {e}. Please use format: `'old'` `'new'`")
@@ -235,7 +237,7 @@ async def settings_text_input_handler(client, message: Message):
         delete_words = await get_user_data_key(user_id, 'delete_words', [])
         delete_words = list(set(delete_words + words))
         await save_user_data(user_id, 'delete_words', delete_words)
-        del active_conversations[user_id]
+        del settings_conversations[user_id]
         await message.reply_text(f"✅ **Words added to delete list**: {', '.join(words)}")
 
 async def rename_file(file, sender, edit):
