@@ -57,15 +57,9 @@ def hhmmss(seconds):
 
 
 def E(L):   
-    private_match = re.match(r'https://t\.me/c/(\d+)/(?:\d+/)?(\d+)', L)
-    public_match = re.match(r'https://t\.me/([^/]+)/(?:\d+/)?(\d+)', L)
-    
-    if private_match:
-        return f'-100{private_match.group(1)}', int(private_match.group(2)), 'private'
-    elif public_match:
-        return public_match.group(1), int(public_match.group(2)), 'public'
-    
-    return None, None, None
+    from utils.topic_helper import parse_link_with_topic
+    cid, mid, lt, tid = parse_link_with_topic(L)
+    return cid, mid, lt
 
 
 def get_display_name(user):
