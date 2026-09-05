@@ -262,7 +262,7 @@ async def send_direct(c, m, tcid, ft=None, rtmid=None, uid=None, i=None):
         print(f'Direct send note: {e}')
         return False
 
-async def process_msg(c, u, m, d, lt, uid, i, status_msg_id=None):
+async def process_msg(c, u, m, d, lt, uid, i, status_msg_id=None, src_topic_id=None):
     try:
         cfg_chat = await get_user_data_key(d, 'chat_id', None)
         tcid = int(d)
@@ -271,9 +271,23 @@ async def process_msg(c, u, m, d, lt, uid, i, status_msg_id=None):
             if '/' in str(cfg_chat):
                 parts = str(cfg_chat).split('/', 1)
                 tcid = int(parts[0])
-                rtmid = int(parts[1]) if len(parts) > 1 else None
+                rtmid = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
             else:
                 tcid = int(cfg_chat)
+        
+        # Auto-match or create topic in destination forum supergroup
+        if not rtmid:
+            msg_topic_id = src_topic_id or getattr(m, 'message_thread_id', None) or getattr(m, 'reply_to_top_message_id', None)
+            if msg_topic_id:
+                try:
+                    from utils.topic_helper import get_source_topic_title, get_or_create_destination_topic
+                    source_client = u if u else c
+                    src_title = await get_source_topic_title(source_client, i, msg_topic_id)
+                    dest_thread = await get_or_create_destination_topic(c, tcid, src_title)
+                    if dest_thread:
+                        rtmid = dest_thread
+                except Exception as te:
+                    print(f"Topic matching notice: {te}")
         
         if m.media:
             orig_text = m.caption.markdown if m.caption else ''
@@ -418,7 +432,7 @@ async def process_msg(c, u, m, d, lt, uid, i, status_msg_id=None):
         print(f"process_msg error: {e}")
         return f'Error: {str(e)[:50]}'
 
-async def handle_single_extraction(c, m, ubot, uc, uid, i, d, lt):
+async def handle_single_extraction(c, m, ubot, uc, uid, i, d, lt, src_topic_id=None):
     """Handle extraction for a single message link"""
     pt = await m.reply_text('⏳ Fetching post...')
     try:
@@ -434,19 +448,15 @@ async def handle_single_extraction(c, m, ubot, uc, uid, i, d, lt):
             await pt.edit('❌ **Post Not Found**\n- Make sure your logged-in account has joined the channel.\n- Check if the link / post number is correct.')
             return
             
-        res = await process_msg(bot_to_use, client_to_use, msg, str(m.chat.id), lt, uid, i, status_msg_id=pt.id)
+        res = await process_msg(bot_to_use, client_to_use, msg, str(m.chat.id), lt, uid, i, status_msg_id=pt.id, src_topic_id=src_topic_id)
         await pt.edit(f'✅ **Extraction Result**: {res}')
     except Exception as e:
         await pt.edit(f'❌ Error: {str(e)[:60]}')
 
-@X.on_message(filters.command(['batch', 'single']))
-async def process_cmd(c, m):
+@X.on_message(filters.command(['batch', 'single']) & filters.private)
+async def batch_cmd(c, m):
     uid = m.from_user.id
-    cmd = m.command[0]
-    
-    if FREEMIUM_LIMIT == 0 and not await is_premium_user(uid):
-        await m.reply_text("This bot is in premium mode. Please contact owner for subscription.")
-        return
+    cmd = m.command[0].lower()
     
     if await sub(c, m) == 1: return
     
@@ -491,22 +501,24 @@ async def text_handler(c, m):
         uc = await get_uclient(uid)
         
         if s == 'start':
-            i, d, lt = E(text)
+            from utils.topic_helper import parse_link_with_topic
+            i, d, lt, tid = parse_link_with_topic(text)
             if not i or not d:
                 await m.reply_text('❌ Invalid link format. Please send a valid Telegram post link.')
                 Z.pop(uid, None)
                 return
-            Z[uid].update({'step': 'count', 'cid': i, 'sid': d, 'lt': lt})
+            Z[uid].update({'step': 'count', 'cid': i, 'sid': d, 'lt': lt, 'topic_id': tid})
             await m.reply_text('🔢 How many consecutive posts to extract? Send a number (e.g. 5, 10, 20):')
             return
 
         elif s == 'start_single':
-            i, d, lt = E(text)
+            from utils.topic_helper import parse_link_with_topic
+            i, d, lt, tid = parse_link_with_topic(text)
             if not i or not d:
                 await m.reply_text('❌ Invalid link format.')
                 Z.pop(uid, None)
                 return
-            await handle_single_extraction(c, m, ubot, uc, uid, i, d, lt)
+            await handle_single_extraction(c, m, ubot, uc, uid, i, d, lt, src_topic_id=tid)
             Z.pop(uid, None)
             return
 
@@ -522,7 +534,7 @@ async def text_handler(c, m):
                 await m.reply_text(f'⚠️ Maximum allowed limit is {maxlimit} posts.')
                 return
 
-            i, start_id, lt = Z[uid]['cid'], Z[uid]['sid'], Z[uid]['lt']
+            i, start_id, lt, tid = Z[uid]['cid'], Z[uid]['sid'], Z[uid]['lt'], Z[uid].get('topic_id', None)
             
             # Check login for private channel before starting
             if lt == 'private' and not uc and not Y:
@@ -549,6 +561,7 @@ async def text_handler(c, m):
             success = 0
             skipped = 0
             consecutive_misses = 0
+            last_edit_time = time.time()
             
             try:
                 for j in range(count):
@@ -563,22 +576,24 @@ async def text_handler(c, m):
                     if not uc or not getattr(uc, 'is_connected', False):
                         uc = await get_uclient(uid)
                     
-                    # Update live dashboard
-                    try:
-                        await pt.edit(
-                            f"🔄 **Batch Progress**: [{j+1}/{count}]\n"
-                            f"📊 **Completed**: `{((j+1)/count)*100:.1f}%`\n"
-                            f"✅ **Extracted**: `{success}` | ⏩ **Skipped**: `{skipped}`\n"
-                            f"📥 **Fetching Post ID**: `{mid}`"
-                        )
-                    except Exception:
-                        pass
+                    # Throttled live dashboard update
+                    if time.time() - last_edit_time > 4 or j == 0 or j == count - 1:
+                        try:
+                            await pt.edit(
+                                f"🔄 **Batch Progress**: [{j+1}/{count}]\n"
+                                f"📊 **Completed**: `{((j+1)/count)*100:.1f}%`\n"
+                                f"✅ **Extracted**: `{success}` | ⏩ **Skipped**: `{skipped}`\n"
+                                f"📥 **Fetching Post ID**: `{mid}`"
+                            )
+                            last_edit_time = time.time()
+                        except Exception:
+                            pass
                     
                     try:
                         msg = await get_msg(ubot, uc if uc else Y, i, mid, lt, uid=uid)
                         if msg:
                             consecutive_misses = 0
-                            res = await process_msg(ubot, uc if uc else Y, msg, str(m.chat.id), lt, uid, i)
+                            res = await process_msg(ubot, uc if uc else Y, msg, str(m.chat.id), lt, uid, i, src_topic_id=tid)
                             if 'Done' in res or 'Copied' in res or 'Sent' in res:
                                 success += 1
                             else:
@@ -586,7 +601,6 @@ async def text_handler(c, m):
                         else:
                             consecutive_misses += 1
                             skipped += 1
-                            # If 5 misses in a row, refresh client connection
                             if consecutive_misses % 5 == 0:
                                 uc = await get_uclient(uid)
                     except FloodWait as fw:
@@ -596,7 +610,7 @@ async def text_handler(c, m):
                         print(f"Batch item {j+1} (ID: {mid}) error: {e}")
                         skipped += 1
                     
-                    await asyncio.sleep(1.5)
+                    await asyncio.sleep(1.2)
                 
                 await m.reply_text(
                     f"🎉 **Batch Extraction Complete!**\n\n"
@@ -611,9 +625,10 @@ async def text_handler(c, m):
 
     # 2. DIRECT LINK SENT WITHOUT ANY COMMAND
     if 't.me/' in text or 'telegram.me/' in text:
-        i, d, lt = E(text)
+        from utils.topic_helper import parse_link_with_topic
+        i, d, lt, tid = parse_link_with_topic(text)
         if i and d:
             ubot = await get_ubot(uid)
             uc = await get_uclient(uid)
-            await handle_single_extraction(c, m, ubot, uc, uid, i, d, lt)
+            await handle_single_extraction(c, m, ubot, uc, uid, i, d, lt, src_topic_id=tid)
             return
