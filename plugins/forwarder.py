@@ -188,10 +188,23 @@ async def forward_batch_cmd(client, message: Message):
         from_chat_id = log_cid
 
     # Target channel determination
-    if arg3 and arg3.lstrip('-').isdigit():
-        target_cid = int(arg3)
+    target_thread_id = None
+    if arg3:
+        if '/' in arg3:
+            p = arg3.split('/', 1)
+            target_cid = int(p[0])
+            target_thread_id = int(p[1]) if p[1].isdigit() else None
+        elif arg3.lstrip('-').isdigit():
+            target_cid = int(arg3)
     else:
-        target_cid = await get_target_channel()
+        tgt = await get_target_channel()
+        if tgt:
+            if '/' in str(tgt):
+                p = str(tgt).split('/', 1)
+                target_cid = int(p[0])
+                target_thread_id = int(p[1]) if p[1].isdigit() else None
+            else:
+                target_cid = int(tgt)
 
     if not target_cid:
         await message.reply_text("❌ No target channel specified! Provide one or set default via `/settarget <channel_id>`.")
@@ -209,7 +222,7 @@ async def forward_batch_cmd(client, message: Message):
     status_msg = await message.reply_text(
         f"🚀 **Starting Systematic Forwarding...**\n\n"
         f"📂 **Source**: `{from_chat_id}`\n"
-        f"🎯 **Target**: `{target_cid}`\n"
+        f"🎯 **Target**: `{target_cid}`" + (f" (Topic `{target_thread_id}`)" if target_thread_id else "") + f"\n"
         f"🔢 **Range**: `{start_id}` ➔ `{end_id}` ({total_msgs} posts)\n\n"
         f"⏳ Initializing..."
     )
@@ -234,17 +247,33 @@ async def forward_batch_cmd(client, message: Message):
                 orig_cap = src_msg.caption or src_msg.text or ""
                 clean_cap = clean_log_caption(orig_cap)
 
+                # Automatic topic matching in target forum supergroup
+                dest_topic_id = target_thread_id
+                if not dest_topic_id:
+                    src_topic_id = getattr(src_msg, 'message_thread_id', None) or getattr(src_msg, 'reply_to_top_message_id', None)
+                    if src_topic_id:
+                        try:
+                            from utils.topic_helper import get_source_topic_title, get_or_create_destination_topic
+                            src_title = await get_source_topic_title(client, from_chat_id, src_topic_id)
+                            matched_id = await get_or_create_destination_topic(client, target_cid, src_title)
+                            if matched_id:
+                                dest_topic_id = matched_id
+                        except Exception:
+                            pass
+
                 if src_msg.media:
                     await client.copy_message(
                         chat_id=target_cid,
                         from_chat_id=from_chat_id,
                         message_id=current_id,
-                        caption=clean_cap if clean_cap else None
+                        caption=clean_cap if clean_cap else None,
+                        reply_to_message_id=dest_topic_id
                     )
                 elif src_msg.text:
                     await client.send_message(
                         chat_id=target_cid,
-                        text=clean_cap if clean_cap else src_msg.text
+                        text=clean_cap if clean_cap else src_msg.text,
+                        reply_to_message_id=dest_topic_id
                     )
                 forwarded += 1
                 await asyncio.sleep(0.5)  # Safe delay to prevent Telegram FloodWait
